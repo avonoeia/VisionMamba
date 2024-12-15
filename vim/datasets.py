@@ -3,11 +3,15 @@
 import os
 import json
 
+from torch.utils.data import Subset
+
 from torchvision import datasets, transforms
 from torchvision.datasets.folder import ImageFolder, default_loader
 
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import create_transform
+
+from sklearn.model_selection import train_test_split
 
 
 class INatDataset(ImageFolder):
@@ -55,6 +59,7 @@ class INatDataset(ImageFolder):
 
 def build_dataset(is_train, args):
     transform = build_transform(is_train, args)
+    print(args.data_set)
 
     if args.data_set == 'CIFAR':
         dataset = datasets.CIFAR100(args.data_path, train=is_train, transform=transform)
@@ -71,6 +76,26 @@ def build_dataset(is_train, args):
         dataset = INatDataset(args.data_path, train=is_train, year=2019,
                               category=args.inat_category, transform=transform)
         nb_classes = dataset.nb_classes
+    elif args.data_set == 'FLAME':
+        dataset = datasets.ImageFolder(args.data_path, transform=transform)
+        nb_classes = 2
+
+        # Get the targets (labels) to stratify
+        targets = [sample[1] for sample in dataset.imgs]  # List of labels
+
+        # Perform train-validation split with stratification
+        train_indices, val_indices = train_test_split(
+            range(len(targets)), 
+            test_size=0.2,              # 20% for validation
+            random_state=42,            # For reproducibility
+            stratify=targets            # Stratify on labels
+        )
+
+        # Create subsets for train and validation
+        train_dataset = Subset(dataset, train_indices)
+        val_dataset = Subset(dataset, val_indices)
+        
+        return train_dataset, val_dataset, nb_classes
 
     return dataset, nb_classes
 
