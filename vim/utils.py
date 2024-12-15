@@ -16,7 +16,8 @@ import torch.distributed as dist
 
 
 class SmoothedValue(object):
-    """Track a series of values and provide access to smoothed values over a
+    """
+    Track a series of values and provide access to smoothed values over a
     window or the global series average.
     """
 
@@ -224,10 +225,10 @@ def init_distributed_mode(args):
     else:
         print('Not using distributed mode')
         args.distributed = False
+        args.gpu = torch.cuda.device_count()
         return
 
     args.distributed = True
-
     torch.cuda.set_device(args.gpu)
     args.dist_backend = 'nccl'
     print('| distributed init (rank {}): {}'.format(

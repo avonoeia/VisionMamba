@@ -578,6 +578,7 @@ def vim_tiny_patch16_stride8_224_bimambav2_final_pool_mean_abs_pos_embed_with_mi
         model.load_state_dict(checkpoint["model"])
     return model
 
+# Added model weight path
 @register_model
 def vim_small_patch16_224_bimambav2_final_pool_mean_abs_pos_embed_with_midclstok_div2(pretrained=False, **kwargs):
     model = VisionMamba(
@@ -585,7 +586,7 @@ def vim_small_patch16_224_bimambav2_final_pool_mean_abs_pos_embed_with_midclstok
     model.default_cfg = _cfg()
     if pretrained:
         checkpoint = torch.hub.load_state_dict_from_url(
-            url="to.do",
+            url="../Vim-tiny-midclstok/vim_t_midclstok_76p1acc.pth",
             map_location="cpu", check_hash=True
         )
         model.load_state_dict(checkpoint["model"])
