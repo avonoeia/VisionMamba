@@ -225,7 +225,7 @@ def get_args_parser():
 def main(args):
     utils.init_distributed_mode(args)
 
-    print("Device Information:" args.device, torch.cuda.device_count())
+    print("Device Information:", args.device, torch.cuda.device_count())
 
     if args.distillation_type != 'none' and args.finetune and not args.eval:
         raise NotImplementedError("Finetuning with distillation not yet supported")
