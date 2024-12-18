@@ -102,7 +102,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
 
 
 @torch.no_grad()
-def evaluate(data_loader, model, device, amp_autocast):
+def evaluate(data_loader, model, device, amp_autocast, is_binary=False):
     criterion = torch.nn.CrossEntropyLoss()
 
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -119,16 +119,29 @@ def evaluate(data_loader, model, device, amp_autocast):
         with amp_autocast():
             output = model(images)
             loss = criterion(output, target)
-
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        
+        if is_binary:
+            acc = accuracy(output, target, topk=(1,))
+        else:
+            # For multi-class classification, we compute top-1 and top-5 accuracy
+            acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
-        metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
-        metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+
+        if is_binary:
+            metric_logger.meters['acc1'].update(acc[0].item(), n=batch_size)  # Binary accuracy
+        else:
+            metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
+            metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+            
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
-    print('* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'
-          .format(top1=metric_logger.acc1, top5=metric_logger.acc5, losses=metric_logger.loss))
+    if is_binary:
+        print('* Binary Accuracy {acc.global_avg:.3f} loss {losses.global_avg:.3f}'
+              .format(acc=metric_logger.meters['acc1'], losses=metric_logger.loss))
+    else:
+        print('* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'
+              .format(top1=metric_logger.acc1, top5=metric_logger.acc5, losses=metric_logger.loss))
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}

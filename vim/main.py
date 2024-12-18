@@ -160,6 +160,8 @@ def get_args_parser():
     # Dataset parameters
     # Checks if data needs to be split into a validation set
     parser.add_argument('--split-data-for-val', type=bool, default=False)
+    # Specify if binary classifier
+    parser.add_argument('--is-binary', type=bool, default=False)
 
     parser.add_argument('--data-path', default='/datasets01/imagenet_full_size/061417/', type=str,
                         help='dataset path')
@@ -469,10 +471,10 @@ def main(args):
         lr_scheduler.step(args.start_epoch)
         
     if args.eval:
-        test_stats = evaluate(data_loader_val, model, device, amp_autocast)
+        test_stats = evaluate(data_loader_val, model, device, amp_autocast, args.is_binary)
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
 
-        test_stats = evaluate(data_loader_val, model_ema.ema, device, amp_autocast)
+        test_stats = evaluate(data_loader_val, model_ema.ema, device, amp_autocast, args.is_binary)
         print(f"Accuracy of the ema network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         return
     
@@ -510,8 +512,9 @@ def main(args):
                 }, checkpoint_path)
              
 
-        test_stats = evaluate(data_loader_val, model, device, amp_autocast)
+        test_stats = evaluate(data_loader_val, model, device, amp_autocast, args.is_binary)
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
+            
         
         if max_accuracy < test_stats["acc1"]:
             max_accuracy = test_stats["acc1"]

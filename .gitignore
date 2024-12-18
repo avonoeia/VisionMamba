@@ -17,4 +17,5 @@ causal-conv1d/
 work_dirs/
 __pycache__/
 flame-classification
-vim/output
+vim/output/
+Vim-tiny-midclstok
