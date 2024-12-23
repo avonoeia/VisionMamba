@@ -3,6 +3,8 @@
 import os
 import json
 
+import numpy as np
+
 from torch.utils.data import Subset
 
 from torchvision import datasets, transforms
@@ -12,6 +14,8 @@ from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import create_transform
 
 from sklearn.model_selection import train_test_split
+
+from imblearn.over_sampling import RandomOverSampler
 
 
 class INatDataset(ImageFolder):
@@ -77,23 +81,56 @@ def build_dataset(is_train, args):
                               category=args.inat_category, transform=transform)
         nb_classes = dataset.nb_classes
     elif args.data_set == 'FLAME':
-        dataset = datasets.ImageFolder(args.data_path, transform=transform)
+        train_dataset = datasets.ImageFolder(args.data_path)
+
+        train_transforms = train_transforms = transforms.Compose([
+            transforms.Resize((224, 224)),  # Resize
+            transforms.RandomHorizontalFlip(p=0.5),  # Horizontal flip
+            transforms.RandomVerticalFlip(p=0.5),  # Vertical flip
+            transforms.RandomRotation(degrees=10),  # Rotation
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),  # Color jitter
+            transforms.GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 0.5)),  # Gaussian noise
+            transforms.ToTensor(),  # Convert to Tensor
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize
+        ])
+        test_transforms = transforms.Compose([
+            transforms.Resize((224, 224)),  # Resize
+            transforms.ToTensor(),  # Convert to Tensor
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize
+        ])
+
         nb_classes = 2
 
-        # Get the targets (labels) to stratify
-        targets = [sample[1] for sample in dataset.imgs]  # List of labels
+        # Oversampling to balance classes
+        indices = list(range(len(train_dataset)))
+        targets = [sample[1] for sample in train_dataset.samples]  # Labels for each sample
 
-        # Perform train-validation split with stratification
+        ros = RandomOverSampler(sampling_strategy=0.8, random_state=42)
+        resampled_indices, resampled_targets = ros.fit_resample(np.array(indices).reshape(-1, 1), targets)
+        resampled_indices = resampled_indices.flatten()
+
+        # Create oversampled subset
+        train_oversampled = Subset(train_dataset, resampled_indices)
+
         train_indices, val_indices = train_test_split(
-            range(len(targets)), 
-            test_size=0.2,              # 20% for validation
-            random_state=42,            # For reproducibility
-            stratify=targets            # Stratify on labels
+            range(len(train_oversampled)), 
+            test_size=0.2,        
+            random_state=42,           
+            stratify=resampled_targets,        
         )
 
         # Create subsets for train and validation
-        train_dataset = Subset(dataset, train_indices)
-        val_dataset = Subset(dataset, val_indices)
+        # dtype: torch.utils.data.dataset.Subset
+        train_dataset = Subset(train_oversampled, train_indices)
+        val_dataset = Subset(train_oversampled, val_indices)
+
+        print(f"Training Set Size: {len(train_dataset)} images")
+        print(f"Validation Set Size: {len(val_dataset)} images")
+        
+        # dtype: torchvision.datasets.folder.ImageFolder
+        train_dataset.dataset.dataset.transform = train_transforms
+        val_dataset.dataset.dataset.transform = test_transforms
+
         
         return train_dataset, val_dataset, nb_classes
 
