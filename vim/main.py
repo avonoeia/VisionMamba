@@ -22,6 +22,7 @@ from engine import train_one_epoch, evaluate
 from losses import DistillationLoss
 from samplers import RASampler
 from augment import new_data_aug_generator
+from early_stopping import EarlyStopping
 
 from contextlib import suppress
 
@@ -55,6 +56,11 @@ def get_args_parser():
     parser.set_defaults(model_ema=True)
     parser.add_argument('--model-ema-decay', type=float, default=0.99996, help='')
     parser.add_argument('--model-ema-force-cpu', action='store_true', default=False, help='')
+
+    # Early stopping params
+    parser.add_argument("--early-stopping", action='store_true')
+    parser.add_argument("--early-stopping-patience", type=int, default=5, help="Early stopping patient (default=5)")
+    parser.add_argument('--early-stopping-delta', type=float, default=0.0, help="Early stopping delta (default=0.0)")
 
     # Optimizer parameters
     parser.add_argument('--opt', default='adamw', type=str, metavar='OPTIMIZER',
@@ -485,6 +491,10 @@ def main(args):
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     max_accuracy = 0.0
+
+    if args.early_stopping:
+        early_stopping = EarlyStopping(patience=args.early_stopping_patience)
+
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             data_loader_train.sampler.set_epoch(epoch)
@@ -513,7 +523,14 @@ def main(args):
              
 
         test_stats = evaluate(data_loader_val, model, device, amp_autocast, args.is_binary)
-        print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
+        print(f"Accuracy of the network on the {len(dataset_val)} validation images: {test_stats['acc1']:.1f}%")
+
+        if args.early_stopping:
+            val_epoch_loss = test_stats['acc1'] / len(dataset_val)
+            early_stopping(val_epoch_loss)
+            if early_stopping.early_stop:
+                print("Stopping early due to convergence.")
+                break
             
         
         if max_accuracy < test_stats["acc1"]:
