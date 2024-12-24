@@ -493,7 +493,7 @@ def main(args):
     max_accuracy = 0.0
 
     if args.early_stopping:
-        early_stopping = EarlyStopping(patience=args.early_stopping_patience)
+        early_stopping = EarlyStopping(patience=args.early_stopping_patience, delta=args.early_stopping_delta)
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
