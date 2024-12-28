@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=0 python hybrid_test.py --model hybrid_mamba_efficientnet --batch-size 32 --num_workers 4 --is-binary True --test-data-path /home/T2410196/VisionMamba/flame-classification/test --model-checkpoint-path /home/T2410196/VisionMamba/vim/output/hybrid_mamba_efficientnet/best_checkpoint.pth --pin-mem
