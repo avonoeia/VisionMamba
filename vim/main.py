@@ -18,11 +18,12 @@ from timm.optim import create_optimizer
 from timm.utils import NativeScaler, get_state_dict, ModelEma
 
 from datasets import build_dataset
-from engine import train_one_epoch, evaluate
+from engine import train_one_epoch, evaluate, evaluate_epoch
 from losses import DistillationLoss
 from samplers import RASampler
 from augment import new_data_aug_generator
 from early_stopping import EarlyStopping
+from torch.utils.tensorboard import SummaryWriter
 
 from contextlib import suppress
 
@@ -171,7 +172,7 @@ def get_args_parser():
 
     parser.add_argument('--data-path', default='/datasets01/imagenet_full_size/061417/', type=str,
                         help='dataset path')
-    parser.add_argument('--data-set', default='IMNET', choices=['CIFAR', 'IMNET', 'INAT', 'INAT19', 'FLAME'],
+    parser.add_argument('--data-set', default='IMNET', choices=['CIFAR', 'IMNET', 'INAT', 'INAT19', 'FLAME', 'PLANTVILLAGE'],
                         type=str, help='Image Net dataset path')
     parser.add_argument('--inat-category', default='name',
                         choices=['kingdom', 'phylum', 'class', 'order', 'supercategory', 'family', 'genus', 'name'],
@@ -495,6 +496,8 @@ def main(args):
     if args.early_stopping:
         early_stopping = EarlyStopping(patience=args.early_stopping_patience, delta=args.early_stopping_delta)
 
+    writer = SummaryWriter(log_dir=args.output_dir)
+
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             data_loader_train.sampler.set_epoch(epoch)
@@ -505,9 +508,8 @@ def main(args):
             args.clip_grad, model_ema, mixup_fn,
             set_training_mode=args.train_mode,  # keep in eval mode for deit finetuning / train mode for training and deit III finetuning
             args=args,
+            writer=writer
         )
-
-        lr_scheduler.step(epoch)
         if args.output_dir:
             checkpoint_paths = [output_dir / 'checkpoint.pth']
             for checkpoint_path in checkpoint_paths:
@@ -522,16 +524,17 @@ def main(args):
                 }, checkpoint_path)
              
 
-        test_stats = evaluate(data_loader_val, model, device, amp_autocast, args.is_binary)
+        test_stats = evaluate_epoch(data_loader_val, model, device, amp_autocast, epoch, writer, args.is_binary)
         print(f"Accuracy of the network on the {len(dataset_val)} validation images: {test_stats['acc1']:.1f}%")
 
         if args.early_stopping:
-            val_epoch_loss = test_stats['acc1'] / len(dataset_val)
+            val_epoch_loss = test_stats['loss']
             early_stopping(val_epoch_loss)
             if early_stopping.early_stop:
                 print("Stopping early due to convergence.")
                 break
-            
+
+        lr_scheduler.step(test_stats['loss'], epoch) 
         
         if max_accuracy < test_stats["acc1"]:
             max_accuracy = test_stats["acc1"]

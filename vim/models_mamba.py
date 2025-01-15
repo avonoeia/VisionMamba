@@ -611,8 +611,8 @@ def vim_base_patch16_224_bimambav2_final_pool_mean_abs_pos_embed_with_middle_cls
         patch_size=16, embed_dim=768, d_state=16, depth=24, rms_norm=True, residual_in_fp32=True, fused_add_norm=True, final_pool_type='mean', if_abs_pos_embed=True, if_rope=False, if_rope_residual=False, bimamba_type="v2", if_cls_token=True, if_devide_out=True, use_middle_cls_token=True, **kwargs)
     model.default_cfg = _cfg()
     if pretrained:
-        checkpoint = torch.hub.load_state_dict_from_url(
-            url="to.do",
+        checkpoint = torch.hub.load(
+            url="/home/T2410196/VisionMamba/Vim-base-midclstok/vim_b_midclstok_81p9acc.pth",
             map_location="cpu", check_hash=True
         )
         model.load_state_dict(checkpoint["model"])

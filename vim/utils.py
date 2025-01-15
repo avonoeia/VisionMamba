@@ -13,6 +13,7 @@ import datetime
 
 import torch
 import torch.distributed as dist
+from torch.utils.tensorboard import SummaryWriter
 
 
 class SmoothedValue(object):

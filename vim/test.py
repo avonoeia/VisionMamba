@@ -1,3 +1,5 @@
+import numpy
+
 import torch
 from sklearn.metrics import (
     roc_curve,
@@ -5,8 +7,10 @@ from sklearn.metrics import (
     confusion_matrix,
     precision_score,
     recall_score,
+    roc_auc_score,
     f1_score
 )
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 from torchvision import datasets, transforms
@@ -79,7 +83,7 @@ def main(args):
 
     model.to(device)
 
-    evaluate_model_with_metrics(model, test_data_loader, device, binary_classification=True)
+    evaluate_model_with_metrics(model, test_data_loader, device, binary_classification=False)
 
 
 
@@ -112,6 +116,7 @@ def evaluate_model_with_metrics(model, loader, device, binary_classification=Tru
     all_probs = []  
     correct = 0
     total = 0
+    top5_correct = 0
 
     with torch.no_grad():
         for images, labels in loader:
@@ -137,6 +142,14 @@ def evaluate_model_with_metrics(model, loader, device, binary_classification=Tru
             if binary_classification:
                 probabilities = F.softmax(outputs, dim=1)[:, 1].cpu().numpy()
                 all_probs.extend(probabilities)
+            else:
+                # Probabilities for ROC AUC
+                probabilities = F.softmax(outputs, dim=1).cpu().numpy()
+                # print("probabilities", probabilities)
+                all_probs.extend(probabilities)
+
+                top5_preds = torch.topk(outputs, 5, dim=1).indices
+                top5_correct += sum([labels[i] in top5_preds[i] for i in range(labels.size(0))])
 
     # Accuracy
     accuracy = 100. * correct / total
@@ -155,7 +168,7 @@ def evaluate_model_with_metrics(model, loader, device, binary_classification=Tru
     plt.xlabel('Predicted Labels')
     plt.ylabel('True Labels')
     plt.title('Confusion Matrix')
-    plt.show(block=False)
+    plt.show(block=True)
     plt.pause(0.001)
 
     # Precision, Recall, F1-Score
@@ -185,8 +198,16 @@ def evaluate_model_with_metrics(model, loader, device, binary_classification=Tru
             plt.grid()
             plt.show(block=False)
             plt.pause(0.001)
-        else:
-            print("AUC-ROC is not supported for multi-class tasks without modification.")
+    else:
+        # Multi-class AUC-ROC
+        try:
+            auc_score = roc_auc_score(all_labels, all_probs, multi_class='ovr')
+            print(f"Multi-class AUC-ROC (OvR): {auc_score:.4f}")
+        except ValueError as e:
+            print(f"Error in calculating AUC-ROC: {e}")
+
+        top5_accuracy = 100. * top5_correct / total
+        print(f"Top-5 Accuracy on test set: {top5_accuracy:.2f}%")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('Vim test script', parents=[get_args_parser()])

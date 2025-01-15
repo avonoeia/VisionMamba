@@ -9,6 +9,17 @@ from torch.utils.data import Subset
 
 from torchvision import datasets, transforms
 from torchvision.datasets.folder import ImageFolder, default_loader
+from torchvision.transforms import (  # Import image transformation functions
+    CenterCrop,  # Center crop an image
+    Compose,  # Compose multiple image transformations
+    Normalize,  # Normalize image pixel values
+    RandomRotation,  # Apply random rotation to images
+    RandomResizedCrop,  # Crop and resize images randomly
+    RandomHorizontalFlip,  # Apply random horizontal flip
+    RandomAdjustSharpness,  # Adjust sharpness randomly
+    Resize,  # Resize images
+    ToTensor  # Convert images to PyTorch tensors
+)
 
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import create_transform
@@ -63,7 +74,8 @@ class INatDataset(ImageFolder):
 
 def build_dataset(is_train, args):
     transform = build_transform(is_train, args)
-    print(args.data_set)
+    plantVillageTransform = build_plant_village_transform(is_train)
+
 
     if args.data_set == 'CIFAR':
         dataset = datasets.CIFAR100(args.data_path, train=is_train, transform=transform)
@@ -72,9 +84,13 @@ def build_dataset(is_train, args):
         root = os.path.join(args.data_path, 'train' if is_train else 'val')
         dataset = datasets.ImageFolder(root, transform=transform)
         nb_classes = 1000
+    elif args.data_set == 'PLANTVILLAGE':
+        root = os.path.join(args.data_path, 'train' if is_train else 'val')
+        dataset = datasets.ImageFolder(root, transform=transform)
+        nb_classes = 15 
     elif args.data_set == 'INAT':
         dataset = INatDataset(args.data_path, train=is_train, year=2018,
-                              category=args.inat_category, transform=transform)
+                              category=args.inat_category, transform=plantVillageTransform)
         nb_classes = dataset.nb_classes
     elif args.data_set == 'INAT19':
         dataset = INatDataset(args.data_path, train=is_train, year=2019,
@@ -135,6 +151,28 @@ def build_dataset(is_train, args):
         return train_dataset, val_dataset, nb_classes
 
     return dataset, nb_classes
+
+def build_plant_village_transform(is_train):
+    if is_train:
+        transforms = Compose(
+            [
+                Resize((224, 224)),             # Resize images to the ViT model's input size
+                RandomRotation(30),               # Apply random rotation
+                RandomHorizontalFlip(0.5),        # Apply random horizontal flip
+                RandomAdjustSharpness(2),         # Adjust sharpness randomly
+                ToTensor(),                       # Convert images to tensors
+                Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])                         # Normalize images using mean and std
+            ]
+        )
+    else:
+        transforms = Compose(
+            [
+                Resize((224, 224)),             # Resize images to the ViT model's input size
+                ToTensor(),                       # Convert images to tensors
+                Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])                         # Normalize images using mean and std
+            ]
+        )
+    return transforms
 
 
 def build_transform(is_train, args):
