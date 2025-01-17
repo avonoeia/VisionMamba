@@ -22,6 +22,7 @@ import models_mamba
 
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print("Device", device, torch.cuda.is_available())
     test_transforms = transforms.Compose([
         transforms.Resize((224, 224)),  # Resize
         transforms.ToTensor(),  # Convert to Tensor
