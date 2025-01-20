@@ -172,7 +172,7 @@ def get_args_parser():
 
     parser.add_argument('--data-path', default='/datasets01/imagenet_full_size/061417/', type=str,
                         help='dataset path')
-    parser.add_argument('--data-set', default='IMNET', choices=['CIFAR', 'IMNET', 'INAT', 'INAT19', 'FLAME', 'PLANTVILLAGE'],
+    parser.add_argument('--data-set', default='IMNET', choices=['CIFAR', 'IMNET', 'INAT', 'INAT19', 'FLAME', 'PLANTVILLAGE', 'CANCER'],
                         type=str, help='Image Net dataset path')
     parser.add_argument('--inat-category', default='name',
                         choices=['kingdom', 'phylum', 'class', 'order', 'supercategory', 'family', 'genus', 'name'],
@@ -524,20 +524,17 @@ def main(args):
                 }, checkpoint_path)
              
 
-        test_stats = evaluate_epoch(data_loader_val, model, device, amp_autocast, epoch, writer, args.is_binary)
-        print(f"Accuracy of the network on the {len(dataset_val)} validation images: {test_stats['acc1']:.1f}%")
-
         if args.early_stopping:
-            val_epoch_loss = test_stats['loss']
-            early_stopping(val_epoch_loss)
+            epoch_loss = train_stats['loss']
+            early_stopping(epoch_loss)
             if early_stopping.early_stop:
                 print("Stopping early due to convergence.")
                 break
 
-        lr_scheduler.step(test_stats['loss'], epoch) 
+        lr_scheduler.step(train_stats['loss'], epoch) 
         
-        if max_accuracy < test_stats["acc1"]:
-            max_accuracy = test_stats["acc1"]
+        if max_accuracy < train_stats["acc1"]:
+            max_accuracy = train_stats["acc1"]
             if args.output_dir:
                 checkpoint_paths = [output_dir / 'best_checkpoint.pth']
                 for checkpoint_path in checkpoint_paths:
@@ -554,7 +551,6 @@ def main(args):
         print(f'Max accuracy: {max_accuracy:.2f}%')
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                     **{f'test_{k}': v for k, v in test_stats.items()},
                      'epoch': epoch,
                      'n_parameters': n_parameters}
         

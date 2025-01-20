@@ -1,0 +1,21 @@
+#!/bin/bash
+CUDA_VISIBLE_DEVICES=0 python main.py \
+    --model vim_base_patch16_224_bimambav2_final_pool_mean_abs_pos_embed_with_middle_cls_token_div2 \
+    --batch-size 32 \
+    --lr 1e-4 \
+    --min-lr 1e-6 \
+    --warmup-lr 1e-4 \
+    --drop-path 0.0 \
+    --weight-decay 1e-4 \
+    --early-stopping \
+    --early-stopping-patience 5 \
+    --early-stopping-delta 0.0 \
+    --sched plateau \
+    --num_workers 4 \
+    --data-set CANCER \
+    --data-path /home/T2410196/VisionMamba/CANCER \
+    --output_dir ./output/CANCER/vim_base_patch16_224_bimambav2_final_pool_mean_abs_pos_embed_with_middle_cls_token_div2 \
+    --epochs 50 \
+    --finetune /home/T2410196/VisionMamba/Vim-base-midclstok/vim_b_midclstok_81p9acc.pth \
+    --is-binary True \
+    --no_amp

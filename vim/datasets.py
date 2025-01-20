@@ -96,6 +96,27 @@ def build_dataset(is_train, args):
         dataset = INatDataset(args.data_path, train=is_train, year=2019,
                               category=args.inat_category, transform=transform)
         nb_classes = dataset.nb_classes
+    elif args.data_set == "CANCER":
+        train_transforms = transforms.Compose([
+            transforms.Resize((224, 224)),  # Resize
+            transforms.RandomHorizontalFlip(p=0.5),  # Horizontal flip
+            transforms.RandomVerticalFlip(p=0.5),  # Vertical flip
+            transforms.RandomRotation(degrees=10),  # Rotation
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),  # Color jitter
+            transforms.GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 0.5)),  # Gaussian noise
+            transforms.ToTensor(),  # Convert to Tensor
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize
+        ])
+
+        test_transforms = transforms.Compose([
+            transforms.Resize((224, 224)),  # Resize
+            transforms.ToTensor(),  # Convert to Tensor
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize
+        ])
+
+        root = os.path.join(args.data_path, 'train' if is_train else 'test')
+        dataset = datasets.ImageFolder(root, transform=train_transforms if is_train else test_transforms)
+        nb_classes = 2
     elif args.data_set == 'FLAME':
         train_dataset = datasets.ImageFolder(args.data_path)
 

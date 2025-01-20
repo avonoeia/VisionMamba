@@ -17,7 +17,8 @@ from timm.utils import accuracy, ModelEma
 from losses import DistillationLoss
 import utils
 import time
-from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, accuracy_score
+# from torchmetrics.functional import accuracy
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 
@@ -36,7 +37,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
     
     if args.cosub:
         criterion = torch.nn.BCEWithLogitsLoss()
-        
+    
+    start_time = time.time()
     
     for samples, targets in metric_logger.log_every(data_loader, print_freq, header):
         samples = samples.to(device, non_blocking=True)
@@ -104,6 +106,21 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
 
         # Log the gradient norm
         metric_logger.update(grad_norm=grad_norm)
+
+        # Compute accuracy (acc1)
+        if args.is_binary:  # Binary classification
+            # Get predicted class (0 or 1) by taking argmax across the second dimension (axis=1)
+            _, preds = torch.max(outputs, dim=1)
+
+            # Flatten targets to match the format of predicted class labels
+            # If targets are one-hot encoded (shape [batch_size, 2]), get the index of the true class
+            targets = targets.argmax(dim=1) if targets.dim() == 2 else targets
+            acc1 = accuracy_score(y_true=targets.detach().cpu().numpy(), y_pred=preds.detach().cpu().numpy())
+            metric_logger.update(acc1=acc1, n=samples.size(0))
+
+        # Log the accuracy to TensorBoard
+        if writer:
+            writer.add_scalar('Training/Accuracy', acc1, epoch)
         
         torch.cuda.synchronize()
         if model_ema is not None:
@@ -112,14 +129,22 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
         metric_logger.update(loss=loss_value)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
     
+    end_time = time.time()
+    fps_epoch = len(data_loader.dataset) / (end_time - start_time)
+
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     
     # Log metrics to TensorBoard once per epoch
     if writer:
+        writer.add_scalar('Loss/Train', metric_logger.loss.global_avg, epoch)
         writer.add_scalar('Training/loss', metric_logger.loss.global_avg, epoch)
+        writer.add_scalar('Learning Rate', metric_logger.meters['lr'].global_avg, epoch)
         writer.add_scalar('train/learning_rate', metric_logger.meters['lr'].global_avg, epoch)
         writer.add_scalar('Training/grad_norm', metric_logger.meters['grad_norm'].global_avg, epoch)
+        writer.add_scalar("Training/FPS", fps_epoch, epoch)
+        writer.add_scalar("Accuracy/Train", metric_logger.meters['acc1'].global_avg, epoch)
+
 
     print("Averaged stats:", metric_logger)
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
@@ -254,11 +279,15 @@ def evaluate_epoch(data_loader, model, device, amp_autocast, epoch, writer, is_b
     # Log all metrics to TensorBoard once per evaluation (after processing entire dataset)
     writer.add_scalar(f'Evaluation/loss', metric_logger.loss.global_avg, epoch)
     writer.add_scalar(f'Evaluation/accuracy', metric_logger.acc1.global_avg / 100, epoch)
+    writer.add_scalar(f'Evaluation/Accuracy', metric_logger.acc1.global_avg / 100, epoch)
     if not is_binary:
         writer.add_scalar(f'Evaluation/top5_accuracy', metric_logger.acc5.global_avg / 100, epoch)
     writer.add_scalar(f'Evaluation/precision', metric_logger.meters['precision'].global_avg, epoch)
+    writer.add_scalar(f'Evaluation/Precision', metric_logger.meters['precision'].global_avg, epoch)
     writer.add_scalar(f'Evaluation/recall', metric_logger.meters['recall'].global_avg, epoch)
+    writer.add_scalar(f'Evaluation/Recall', metric_logger.meters['recall'].global_avg, epoch)
     writer.add_scalar(f'Evaluation/f1_score', metric_logger.meters['f1_score'].global_avg, epoch)
+    writer.add_scalar(f'Evaluation/F1 Score', metric_logger.meters['f1_score'].global_avg, epoch)
     writer.add_scalar(f'Evaluation/auc-roc', metric_logger.meters['auc_roc'].global_avg, epoch)
     writer.add_scalar(f'Evaluation/runtime', metric_logger.meters['runtime'].global_avg, epoch)
     writer.add_scalar(f'Evaluation/samples_per_second', samples_per_second, epoch)

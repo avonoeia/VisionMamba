@@ -84,7 +84,7 @@ def main(args):
 
     model.to(device)
 
-    evaluate_model_with_metrics(model, test_data_loader, device, binary_classification=False)
+    evaluate_model_with_metrics(model, test_data_loader, device, binary_classification=args.is_binary)
 
 
 

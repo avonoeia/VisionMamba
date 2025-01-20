@@ -1,0 +1,8 @@
+CUDA_VISIBLE_DEVICES=0 python test.py \
+    --model vim_base_patch16_224_bimambav2_final_pool_mean_abs_pos_embed_with_middle_cls_token_div2 \
+    --batch-size 32 \
+    --num_workers 4 \
+    --test-data-path /home/T2410196/VisionMamba/CANCER/test \
+    --model-checkpoint-path /home/T2410196/VisionMamba/vim/output/CANCER/vim_base_patch16_224_bimambav2_final_pool_mean_abs_pos_embed_with_middle_cls_token_div2/best_checkpoint.pth \
+    --is-binary True \
+    --pin-mem
