@@ -542,14 +542,50 @@ class VisionMamba(nn.Module):
         else:
             raise NotImplementedError
 
-    def forward(self, x, return_features=False, inference_params=None, if_random_cls_token_position=False, if_random_token_rank=False):
-        x = self.forward_features(x, inference_params, if_random_cls_token_position=if_random_cls_token_position, if_random_token_rank=if_random_token_rank)
+    def forward(self, 
+                x, 
+                return_features=False, 
+                inference_params=None, 
+                if_random_cls_token_position=False, 
+                if_random_token_rank=False,
+                return_distillation_outputs=False):
+        features = self.forward_features(x, inference_params, if_random_cls_token_position=if_random_cls_token_position, if_random_token_rank=if_random_token_rank)
+        
         if return_features:
-            return x
-        x = self.head(x)
+            return features
+        
+        output_head = self.head(features)
+        logits = output_head
         if self.final_pool_type == 'max':
-            x = x.max(dim=1)[0]
-        return x
+            logits = output_head.max(dim=1)[0]
+        
+        if return_distillation_outputs:
+            return logits, output_head
+        return output_head
+    
+    # def forward(self, x, return_features=False, inference_params=None, 
+    #         if_random_cls_token_position=False, if_random_token_rank=False, 
+    #         return_distillation_outputs=False):
+    # # Compute features
+    # features = self.forward_features(x, inference_params, 
+    #                                  if_random_cls_token_position=if_random_cls_token_position, 
+    #                                  if_random_token_rank=if_random_token_rank)
+    
+    # if return_features:
+    #     return features
+    
+    # # Compute logits
+    # logits = self.head(features)
+
+    # if self.final_pool_type == 'max':
+    #     logits = logits.max(dim=1)[0]
+
+    # if return_distillation_outputs:
+    #     # Return both logits and raw features (as distillation outputs)
+    #     return logits, features  # Features can act as `outputs_kd`
+
+    # return logits
+
 
 
 @register_model

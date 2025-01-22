@@ -31,10 +31,13 @@ class DistillationLoss(torch.nn.Module):
                 in the first position and the distillation predictions as the second output
             labels: the labels for the base criterion
         """
+        # Debugging
+        # print("LOSSES DEBUG", len(outputs))
         outputs_kd = None
         if not isinstance(outputs, torch.Tensor):
             # assume that the model outputs a tuple of [outputs, outputs_kd]
             outputs, outputs_kd = outputs
+
         base_loss = self.base_criterion(outputs, labels)
         if self.distillation_type == 'none':
             return base_loss

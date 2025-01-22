@@ -16,6 +16,7 @@ from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from timm.scheduler import create_scheduler
 from timm.optim import create_optimizer
 from timm.utils import NativeScaler, get_state_dict, ModelEma
+from torchvision.models import efficientnet_b7, EfficientNet_B7_Weights
 
 from datasets import build_dataset
 from engine import train_one_epoch, evaluate, evaluate_epoch
@@ -236,8 +237,8 @@ def main(args):
 
     print("Device Information:", args.device, torch.cuda.device_count())
 
-    if args.distillation_type != 'none' and args.finetune and not args.eval:
-        raise NotImplementedError("Finetuning with distillation not yet supported")
+    # if args.distillation_type != 'none' and args.finetune and not args.eval:
+    #     raise NotImplementedError("Finetuning with distillation not yet supported")
 
     device = torch.device(args.device)
 
@@ -431,18 +432,26 @@ def main(args):
     if args.distillation_type != 'none':
         assert args.teacher_path, 'need to specify teacher-path when using distillation'
         print(f"Creating teacher model: {args.teacher_model}")
-        teacher_model = create_model(
-            args.teacher_model,
-            pretrained=False,
-            num_classes=args.nb_classes,
-            global_pool='avg',
-        )
-        if args.teacher_path.startswith('https'):
-            checkpoint = torch.hub.load_state_dict_from_url(
-                args.teacher_path, map_location='cpu', check_hash=True)
+
+        if args.teacher_model == "efficientnet-b7":
+            teacher_model = efficientnet_b7(weights=EfficientNet_B7_Weights.IMAGENET1K_V1)
+            num_features = teacher_model.classifier[1].in_features
+            teacher_model.classifier[1] = torch.nn.Linear(num_features, 2)  # 2 for binary classification
+            teacher_model.load_state_dict(torch.load(args.teacher_path, map_location='cpu'))
+            print("Teacher model loaded successfully with weights from", args.teacher_path)
         else:
-            checkpoint = torch.load(args.teacher_path, map_location='cpu')
-        teacher_model.load_state_dict(checkpoint['model'])
+            teacher_model = create_model(
+                args.teacher_model,
+                pretrained=False,
+                num_classes=args.nb_classes,
+                global_pool='avg',
+            )
+            if args.teacher_path.startswith('https'):
+                checkpoint = torch.hub.load_state_dict_from_url(
+                    args.teacher_path, map_location='cpu', check_hash=True)
+            else:
+                checkpoint = torch.load(args.teacher_path, map_location='cpu')
+            teacher_model.load_state_dict(checkpoint['model'])
         teacher_model.to(device)
         teacher_model.eval()
 

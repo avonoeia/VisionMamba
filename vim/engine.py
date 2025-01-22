@@ -26,7 +26,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, loss_scaler, amp_autocast, max_norm: float = 0,
                     model_ema: Optional[ModelEma] = None, mixup_fn: Optional[Mixup] = None,
-                    set_training_mode=True, writer=None, args = None):
+                    set_training_mode=True, writer=None, args = None, teacher_model = None):
     model.train(set_training_mode)
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
@@ -52,10 +52,15 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
             targets = targets.gt(0.0).type(targets.dtype)
          
         with amp_autocast():
-            outputs = model(samples, if_random_cls_token_position=args.if_random_cls_token_position, if_random_token_rank=args.if_random_token_rank)
+            outputs = model(samples, 
+                            return_distillation_outputs=True if args.distillation_type != 'none' else False,
+                            if_random_cls_token_position=args.if_random_cls_token_position, 
+                            if_random_token_rank=args.if_random_token_rank)
             # outputs = model(samples)
             if not args.cosub:
                 loss = criterion(samples, outputs, targets)
+            # elif args.distillation_type != 'none' and teacher_model != None:
+                # DO SOMETHING HERE
             else:
                 outputs = torch.split(outputs, outputs.shape[0]//2, dim=0)
                 loss = 0.25 * criterion(outputs[0], targets) 

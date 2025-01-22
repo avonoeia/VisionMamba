@@ -1,0 +1,8 @@
+CUDA_VISIBLE_DEVICES=0 python test.py \
+    --model vim_tiny_patch16_stride8_224_bimambav2_final_pool_mean_abs_pos_embed_with_midclstok_div2 \
+    --batch-size 32 \
+    --num_workers 4 \
+    --is-binary True \
+    --test-data-path /home/T2410196/VisionMamba/flame-classification/test \
+    --model-checkpoint-path /home/T2410196/VisionMamba/vim/output/distillation/finetuned/efficientnetb7_to_vim_tiny_hard_a0.75/best_checkpoint.pth \
+    --pin-mem
